@@ -1,0 +1,11 @@
+# Mac Files
+**/.DS_Store
+
+# DSC
+*.mof
+
+# TEST
+TestResults_*
+
+# Artifacts
+Artifact/*
