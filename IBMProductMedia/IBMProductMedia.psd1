@@ -12,7 +12,7 @@
 RootModule = 'IBMProductMedia.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.0.1'
+ModuleVersion = '0.0.2'
 
 # ID used to uniquely identify this module
 GUID = 'a218d21d-9c6f-4fe4-89b4-cf5f387f963d'
@@ -117,6 +117,3 @@ HelpInfoURI = 'https://github.com/cBlueShell/IBMProductMedia'
 # DefaultCommandPrefix = ''
 
 }
-
-
-

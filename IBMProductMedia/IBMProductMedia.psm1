@@ -1,3 +1,5 @@
+Import-Module BlueShellUtils
+
 <#
    PowerShell Classes to Model IBM Installation Media
    Key features: 
@@ -31,24 +33,14 @@ Class MediaFile {
     hidden [Bool] _ExtractMedia([MediaFile] $mediaFile, [String] $TargetPath, [String] $SourcePath, [bool] $DeepScan) {
         $extracted = $false
         $fullMediaPath = Join-Path $SourcePath -ChildPath ($mediaFile.Name)
-        if (!(Test-Path alias:zip)) {
-            #Setup 7-Zip Alias
-            $sevenZipExe = Get-SevenZipExecutable
-            if (!([string]::IsNullOrEmpty($sevenZipExe)) -and (Test-Path($sevenZipExe))) {
-                Set-Alias zip $sevenZipExe -Scope 'Script'
-            } else {
-                Write-Error "MediaFile depends on 7-Zip, please ensure 7-Zip is installed first"
-                Return $false
-            }
-        }
         if (Test-Path($fullMediaPath)) {
             Write-Verbose "Extracting installation media from: $fullMediaPath"
-            zip x "-o$TargetPath" "$fullMediaPath" | Out-Null
+            Expand-ZipFile $fullMediaPath $TargetPath -Force -ErrorAction Stop
             # Some media have an additional zip file needed to extract, find it, expand it, and delete it to save disk space
             if ($DeepScan) {
                 $childZipFiles = Get-ChildItem *.zip -Path $TargetPath
                 foreach ($childZipFile in $childZipFiles) {
-                    zip x "-o$TargetPath" $childZipFile.FullName | Out-Null
+                    Expand-ZipFile $childZipFile.FullName $TargetPath -Force
                     Remove-Item $childZipFile.FullName -force
                 }
             }
@@ -128,21 +120,11 @@ Class IBMProductMedia {
             Write-Error "TargetPath and SourcePath are required parameters"
             Return $false
         }
-        #Make sure media is available, map to random drive if network drive
-        $networkShare = $false
-        try {
-            if (($SourcePath.StartsWith("\\")) -and (!(Test-Path($SourcePath)))) {
-                $networkShare = $true
-            }
-        } catch [System.UnauthorizedAccessException] {
-            $networkShare = $true
-        }
 
-        if ($networkShare) {
-            Write-Verbose "Network Share detected, need to map"
-            Set-NetUse -SharePath (Split-Path($SourcePath)) -SharePathCredential $SourcePathCredential -Ensure "Present" | Out-Null
-        }
-        if (!(Test-Path $SourcePath -PathType Container)) {
+        #Make sure media is available, if network drive copy locally
+        $TempSourcePath = Copy-RemoteItemLocally -Source $SourcePath -SourceCredential $SourcePathCredential
+
+        if (!(Test-Path $TempSourcePath -PathType Container)) {
             Write-Error "Invalid SourcePath (Not A Folder).  SourcePath should be a folder where the IBM media is residing"
         }
         if (($CleanUp) -and (Test-Path($TargetPath))) {
@@ -153,19 +135,11 @@ Class IBMProductMedia {
             New-Item -ItemType directory -Path $TargetPath | Out-Null
         }
 
-        try {
-            $this._ExtractMedia($this, $TargetPath, $SourcePath, $DeepScan)
-        } catch {
-            $ErrorMessage = $_.Exception.Message
-            Write-Error "An error occurred while extracting the media: $SourcePath \n Error Message: $ErrorMessage"
-        } finally {
-            if ($networkShare) {
-                try {
-                    Set-NetUse -SharePath (Split-Path($SourcePath)) -SharePathCredential $SourcePathCredential -Ensure "Absent" | Out-Null
-                } catch {
-                    Write-Warning "Unable to disconnect share: $SourcePath"
-                }
-            }
+        $this._ExtractMedia($this, $TargetPath, $TempSourcePath, $DeepScan)
+
+        # If media was copied locally from remote, then delete it
+        if ($SourcePath.StartsWith("\\") -and ($TempSourcePath -ne $SourcePath)) {
+            Remove-ItemBackground -Path $TempSourcePath
         }
         
         Return ($this._GetRepositoryLocations($this, $TargetPath, $CleanUp))
@@ -180,6 +154,9 @@ Class IBMProductMedia {
         [String[]] $productTargetPath = $TargetPath
         if ($ibmProductMedia.ShortName) {
             $productTargetPath = Join-Path -Path $TargetPath -ChildPath $ibmProductMedia.ShortName
+            if (!(Test-Path $productTargetPath)) {
+                New-Item -ItemType directory -Path $productTargetPath | Out-Null
+            }
         }
         if ($ibmProductMedia.MediaFiles -and ($ibmProductMedia.MediaFiles.Count -gt 0)) {
             $hasMedia = $true

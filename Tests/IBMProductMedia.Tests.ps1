@@ -30,4 +30,11 @@ Describe "IBMProductMedia Module PS$PSVersion" {
             $tempProduct.Name -eq "TempProduct" | Should Be $True
         }
     }
+
+    InModuleScope $ModuleName {
+        It 'Should be able to parse a media definition file' {
+            $productMediaConfig = Import-Clixml "$PSScriptRoot\TestData\ND-8.5.5-plus-JAVA7.xml"
+            $productMediaConfig.ShortName -eq "WASND855" | Should Be $True 
+        }
+    }
 }
