@@ -111,7 +111,11 @@ Task Deploy -Depends Build {
 
     $Version = Get-NextPSGalleryVersion -Name $env:BHProjectName
     Write-Output "Deploying version $Version"
-    
+
+    Write-Output "Build version $build_version"
+
+    Write-Output "AppVeyor version $($env:appveyor_build_version)"
+
     # Deploy to PS Gallery
     $Params = @{
         Path = $ProjectRoot
