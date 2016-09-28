@@ -97,7 +97,7 @@ Task Test -Depends Init, Analyze  {
 
 Task Build -Depends Test {
     $lines
-
+    
     # Bump the module version
     $Version = Get-NextPSGalleryVersion -Name $env:BHProjectName
     Write-Output "Setting Version: $Version"
@@ -109,6 +109,9 @@ Task Build -Depends Test {
 Task Deploy -Depends Build {
     $lines
 
+    $Version = Get-NextPSGalleryVersion -Name $env:BHProjectName
+    Write-Output "Deploying version $Version"
+    
     # Deploy to PS Gallery
     $Params = @{
         Path = $ProjectRoot
