@@ -5,7 +5,7 @@ if ($env:BHProjectName -and $env:BHProjectName.Count -eq 1 -and
     $env:BHCommitMessage -match '!deploy') {
     Deploy Module {
         By PSGalleryModule {
-            FromSource $ENV:BHProjectName
+            FromSource "IBMProductMedia"
             To PSGallery
             WithOptions @{
                 ApiKey = $ENV:PSGalleryAPIKey
